@@ -1,10 +1,10 @@
-import { useAuth } from './context/AuthContext'
+import { useSelector } from 'react-redux'
 import GoogleSignInButton from './components/GoogleSignInButton'
 import Logo from './components/Logo'
 import ProfileCard from './components/ProfileCard'
 
 function App() {
-  const { user, loading, error } = useAuth()
+  const { firebaseUser: user, loading, error, backendUser } = useSelector((state) => state.auth)
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-neutral-950 px-4">
@@ -27,6 +27,12 @@ function App() {
 
         {error && (
           <p className="mt-4 text-center text-sm text-red-400">{error}</p>
+        )}
+
+        {!loading && user && !backendUser && (
+          <p className="mt-4 text-center text-sm text-amber-400">
+            Signed in with Google, but no backend session was found (check /auth/login).
+          </p>
         )}
       </div>
     </div>

@@ -1,7 +1,10 @@
-import { useAuth } from '../context/AuthContext'
+import { useDispatch, useSelector } from 'react-redux'
+import { logoutUser } from '../store/authSlice'
 
 export default function ProfileCard() {
-  const { user, logout } = useAuth()
+  const dispatch = useDispatch()
+  const user = useSelector((state) => state.auth.firebaseUser)
+  const logout = () => dispatch(logoutUser())
 
   return (
     <div className="flex w-full flex-col items-center gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-8 shadow-lg shadow-black/20">

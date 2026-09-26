@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useDispatch } from 'react-redux'
+import { signInWithGoogle } from '../store/authSlice'
 import GoogleIcon from './GoogleIcon'
 
 export default function GoogleSignInButton() {
-  const { signInWithGoogle } = useAuth()
+  const dispatch = useDispatch()
   const [submitting, setSubmitting] = useState(false)
 
   const handleClick = async () => {
     setSubmitting(true)
-    const data = await signInWithGoogle()
-    console.log('Google sign-in data:', data)
+    await dispatch(signInWithGoogle())
     setSubmitting(false)
   }
 

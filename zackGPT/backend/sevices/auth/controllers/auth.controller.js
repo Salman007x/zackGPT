@@ -22,7 +22,7 @@ const googleSignIn = async (req, res) => {
     res.cookie('sessionId', sessionId, { httpOnly: true, secure: false, sameSite: 'Strict', maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 days
 
     await redis.setex(`session:${sessionId}`, 7 * 24 * 60 * 60, JSON.stringify(user));
-
+    console.log('Session stored in Redis:', `session:${sessionId}`);
     res.status(200).json({ message: 'Login successful', user });
   } catch (error) {
     res.status(401).json({ message: 'Invalid token', error: error.message });
@@ -38,6 +38,7 @@ const logout = async (req, res) => {
       res.clearCookie('sessionId');
     }
     res.status(200).json({ message: 'Logout successful' });
+    console.log('Session removed from Redis:', `session:${sessionId}`);
   } catch (error) {
     res.status(500).json({ message: 'Error occurred during logout', error: error.message });
   }

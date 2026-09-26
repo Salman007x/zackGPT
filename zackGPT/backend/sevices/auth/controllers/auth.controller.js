@@ -1,5 +1,6 @@
 import { getAuth } from 'firebase-admin/auth';
 import User from '../models/user.model.js';
+import redis from '../../../shared/redis/redis.js';
 import crypto from 'crypto';
 
 const googleSignIn = async (req, res) => {
@@ -20,6 +21,7 @@ const googleSignIn = async (req, res) => {
     const sessionId = crypto.randomBytes(16).toString('hex');
     res.cookie('sessionId', sessionId, { httpOnly: true, secure: false, sameSite: 'Strict', maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 days
 
+    await redis.setex(`session:${sessionId}`, 7 * 24 * 60 * 60, JSON.stringify(user));
 
     res.status(200).json({ message: 'Login successful', user });
   } catch (error) {
@@ -27,4 +29,19 @@ const googleSignIn = async (req, res) => {
   }
 };
 
-export default googleSignIn;
+
+const logout = async (req, res) => {
+  try {
+    const sessionId = req.cookies.sessionId;
+    if (sessionId) {
+      await redis.del(`session:${sessionId}`);
+      res.clearCookie('sessionId');
+    }
+    res.status(200).json({ message: 'Logout successful' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error occurred during logout', error: error.message });
+  }
+};
+
+export { googleSignIn, logout };
+

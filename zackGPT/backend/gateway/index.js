@@ -26,6 +26,7 @@ app.use('/auth', proxy(process.env.AUTH_SERVICE_URL, {
 
 app.use('/me', authmiddleware, getCurrentUser);
 app.use('/chat', authmiddleware, proxyWithHeader(process.env.CHAT_SERVICE_URL));
+app.use('/agent', authmiddleware, proxyWithHeader(process.env.AGENT_SERVICE_URL));
 
 app.get('/', (req, res) => {
   res.send('Hello from ZackGPT Gateway! , i am running on port ' + PORT);

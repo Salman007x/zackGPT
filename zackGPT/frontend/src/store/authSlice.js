@@ -1,88 +1,104 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { signInWithPopup, signOut } from 'firebase/auth'
 import { auth, googleProvider } from '../lib/firebase'
-import { syncGoogleUser, logoutBackend, fetchCurrentUser } from '../services/authApi'
+import { fetchCurrentUser, loginWithIdToken, logoutSession } from '../services/authApi'
+import { toUserMessage } from '../utils/errors'
 
-const initialState = {
-  firebaseUser: null,
-  backendUser: null,
-  loading: true,
-  error: null,
-}
+// The backend session cookie (validated via /me) is the source of truth for "signed in".
+// Firebase is only used to obtain the Google ID token that /auth/login exchanges for a session.
 
-export const refreshBackendUser = createAsyncThunk('auth/refreshBackendUser', async () => {
+export const bootstrapSession = createAsyncThunk('auth/bootstrap', async (_, { rejectWithValue }) => {
   try {
-    const { user } = await fetchCurrentUser()
-    return user
+    return await fetchCurrentUser()
   } catch (err) {
-    console.warn('[authSlice] /me check failed (no backend session):', err.message)
+    if (err.response?.status !== 401) return rejectWithValue(toUserMessage(err))
+  }
+
+  await auth.authStateReady()
+  if (!auth.currentUser) return null
+
+  // Google sign-in is still valid but the backend session expired: mint a new one silently.
+  try {
+    const idToken = await auth.currentUser.getIdToken()
+    return await loginWithIdToken(idToken)
+  } catch {
     return null
   }
 })
 
-export const signInWithGoogle = createAsyncThunk(
-  'auth/signInWithGoogle',
-  async (_, { dispatch, rejectWithValue }) => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider)
-      const idToken = await result.user.getIdToken()
-      try {
-        const syncedUser = await syncGoogleUser(idToken)
-        console.log('[authSlice] backend user data:', syncedUser)
-        await dispatch(refreshBackendUser())
-      } catch (syncErr) {
-        console.warn('[authSlice] backend user sync failed (is /auth/login built yet?):', syncErr.message)
-      }
-      return null
-    } catch (err) {
-      console.error('[authSlice] signInWithPopup failed:', err.code, err.message)
-      if (err.code === 'auth/popup-closed-by-user') {
-        return rejectWithValue(null)
-      }
-      return rejectWithValue(err.message)
-    }
-  }
-)
-
-export const logoutUser = createAsyncThunk('auth/logoutUser', async () => {
+export const signInWithGoogle = createAsyncThunk('auth/signIn', async (_, { rejectWithValue }) => {
   try {
-    await logoutBackend()
+    const result = await signInWithPopup(auth, googleProvider)
+    const idToken = await result.user.getIdToken()
+    return await loginWithIdToken(idToken)
   } catch (err) {
-    console.warn('[authSlice] backend logout failed:', err.message)
+    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+      return rejectWithValue(null)
+    }
+    if (import.meta.env.DEV) console.error('[auth] sign-in failed:', err.code ?? err.message)
+    return rejectWithValue(err.response ? toUserMessage(err) : "Couldn't sign in with Google. Please try again.")
+  }
+})
+
+export const logoutUser = createAsyncThunk('auth/logout', async () => {
+  try {
+    await logoutSession()
+  } catch {
+    // Clearing local state is still correct even if the server call fails.
   }
   await signOut(auth)
 })
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState,
+  initialState: {
+    status: 'checking', // checking | authenticated | unauthenticated | error
+    user: null,
+    error: null,
+    signingIn: false,
+  },
   reducers: {
-    firebaseUserChanged(state, action) {
-      state.firebaseUser = action.payload
-      state.loading = false
-      if (!action.payload) {
-        state.backendUser = null
-      }
+    sessionExpired(state) {
+      if (state.status !== 'authenticated') return
+      state.status = 'unauthenticated'
+      state.user = null
+      state.error = 'Your session has expired. Please sign in again.'
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(refreshBackendUser.fulfilled, (state, action) => {
-        state.backendUser = action.payload
-      })
-      .addCase(signInWithGoogle.pending, (state) => {
+      .addCase(bootstrapSession.pending, (state) => {
+        state.status = 'checking'
         state.error = null
       })
-      .addCase(signInWithGoogle.rejected, (state, action) => {
-        if (action.payload) {
-          state.error = action.payload
-        }
+      .addCase(bootstrapSession.fulfilled, (state, { payload }) => {
+        state.user = payload
+        state.status = payload ? 'authenticated' : 'unauthenticated'
+      })
+      .addCase(bootstrapSession.rejected, (state, { payload }) => {
+        state.status = 'error'
+        state.error = payload ?? toUserMessage()
+      })
+      .addCase(signInWithGoogle.pending, (state) => {
+        state.signingIn = true
+        state.error = null
+      })
+      .addCase(signInWithGoogle.fulfilled, (state, { payload }) => {
+        state.signingIn = false
+        state.user = payload
+        state.status = 'authenticated'
+      })
+      .addCase(signInWithGoogle.rejected, (state, { payload }) => {
+        state.signingIn = false
+        state.error = payload ?? null
       })
       .addCase(logoutUser.fulfilled, (state) => {
-        state.backendUser = null
+        state.status = 'unauthenticated'
+        state.user = null
+        state.error = null
       })
   },
 })
 
-export const { firebaseUserChanged } = authSlice.actions
+export const { sessionExpired } = authSlice.actions
 export default authSlice.reducer

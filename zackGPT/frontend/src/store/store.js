@@ -1,14 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit'
-import authReducer from './authSlice'
+import { setUnauthorizedHandler } from '../lib/api'
+import authReducer, { sessionExpired } from './authSlice'
+import conversationsReducer from './conversationsSlice'
+import messagesReducer from './messagesSlice'
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    conversations: conversationsReducer,
+    messages: messagesReducer,
   },
-  middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        ignoredPaths: ['auth.firebaseUser'],
-      },
-    }),
 })
+
+setUnauthorizedHandler(() => store.dispatch(sessionExpired()))

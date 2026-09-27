@@ -1,27 +1,21 @@
-import { useState } from 'react'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { signInWithGoogle } from '../store/authSlice'
 import GoogleIcon from './GoogleIcon'
+import Spinner from './common/Spinner'
 
 export default function GoogleSignInButton() {
   const dispatch = useDispatch()
-  const [submitting, setSubmitting] = useState(false)
-
-  const handleClick = async () => {
-    setSubmitting(true)
-    await dispatch(signInWithGoogle())
-    setSubmitting(false)
-  }
+  const signingIn = useSelector((s) => s.auth.signingIn)
 
   return (
     <button
       type="button"
-      onClick={handleClick}
-      disabled={submitting}
-      className="flex items-center justify-center gap-3 w-full rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-60"
+      onClick={() => dispatch(signInWithGoogle())}
+      disabled={signingIn}
+      className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-6 py-3 text-sm font-medium text-neutral-800 shadow-sm transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-70"
     >
-      <GoogleIcon />
-      {submitting ? 'Signing in…' : 'Sign in with Google'}
+      {signingIn ? <Spinner className="size-5 text-neutral-500" label="Signing in" /> : <GoogleIcon />}
+      {signingIn ? 'Signing in…' : 'Continue with Google'}
     </button>
   )
 }

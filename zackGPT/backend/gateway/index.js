@@ -4,6 +4,7 @@ import proxy from 'express-http-proxy';
 import cookieParser from 'cookie-parser';
 import authmiddleware from './middlewares/auth.middleware.js';
 import getCurrentUser from './controllers/user.controller.js';
+import proxyWithHeader from './utils/proxyWithHeader.js';
 import cors from 'cors';
 
 dotenv.config();
@@ -24,6 +25,7 @@ app.use('/auth', proxy(process.env.AUTH_SERVICE_URL, {
 }));
 
 app.use('/me', authmiddleware, getCurrentUser);
+app.use('/chat', authmiddleware, proxyWithHeader(process.env.CHAT_SERVICE_URL));
 
 app.get('/', (req, res) => {
   res.send('Hello from ZackGPT Gateway! , i am running on port ' + PORT);

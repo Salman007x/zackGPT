@@ -5,6 +5,7 @@ export const agentState = Annotation.Root({
     AIresponse: Annotation(),
     agentType: Annotation(),
     conversationId: Annotation(),
+    history: Annotation(),
 });
 
 export default agentState;

@@ -39,7 +39,7 @@ export const routerAgent = async (agentState) => {
                 agentType = parsed.agentType;
             }
         } catch {
-            pass; // If JSON parsing fails, default to "chat"
+            // Invalid JSON: fall back to "chat"
         }
     }
 
